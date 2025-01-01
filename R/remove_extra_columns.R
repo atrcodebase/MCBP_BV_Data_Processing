@@ -14,6 +14,11 @@ for(sheet in benef_sheets){
     select(-any_of(c(extra_cols$questions[extra_cols$Tool %in% "Beneficiary_Verification" & extra_cols$Sheet %in% sheet], unnecessary_cols)))
 }
 
+## Community Elder Confirmation
+comm_elder <- comm_elder %>%
+  select(-any_of(c(extra_cols$questions[extra_cols$Tool %in% "Community_Elder" & extra_cols$Sheet %in% sheet])))
+
+
 # remove extra objects -----------------------------------------------------------------------------
 rm(extra_cols)
 

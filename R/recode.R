@@ -58,6 +58,16 @@ for(sheet in names(benef_ver)){
   }
 }
 
+## Community Elder Confirmation -------------------------------------------------------------------------
+comm_elder <- comm_elder %>%
+  mutate(Starttime = as.POSIXct(Starttime, format="%a %b %d %Y %H:%M:%S"),
+         Endtime = as.POSIXct(Endtime, format="%a %b %d %Y %H:%M:%S")) 
+
+# Update links
+comm_elder <- update_media_links(data=comm_elder, 
+                                         tool_path = elder_tool_path, 
+                                         download_link=download_link) # No need if data is downloaded from SCTO website
+
 # remove extra objects -----------------------------------------------------------------------------
 rm(relabel_98_99, benef_numeric_cols, benef_sub)
 

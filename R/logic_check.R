@@ -3,8 +3,9 @@
 # See if any checks can be added for: pregnant	breastfeeding	have_a_child_under_2. A person is not likely to be pregnant and also breastfeeding at the time
 # which_household_members_participated
 
-# Check: Investigate if we have female interviews when male didn't gave consent or vice versa
+# Check: Investigate if we have female interviews when male didn't gave consent or vice versa Note: code added, no such issue
 #
+# This should be checked while matching missing WFP beneficiaries: anyone_registered_for_wfp_program_scope_card
 
 ## Beneficiary Verification ------------------------------------------------------------------------
 # Logic checks
@@ -90,7 +91,12 @@ BV_logical_issues <- rbind(
            Questions = "fm_which_grade - female_hhm_age",
            Values = paste0(fm_which_grade, " - ", female_hhm_age)) %>%
     select(Questions, Values, issue, KEY),
-  
+  benef_ver_approved$Female_Members_Details %>% 
+    filter(as.numeric(fm_which_grade) > 6) %>% 
+    mutate(issue="Female students are not allowed over 6th grade!",
+           Questions = "fm_which_grade - female_hhm_age",
+           Values = paste0(fm_which_grade, " - ", female_hhm_age)) %>%
+    select(Questions, Values, issue, KEY),
   
   # Inconsistent Values
   benef_ver_approved$data %>% 
@@ -140,13 +146,87 @@ BV_logical_issues <- rbind(
     mutate(issue="Inconsistent Values!",
            Questions = "fm_married_divorced_widowed_label - fm_married_divorced_widowed",
            Values = paste0(fm_married_divorced_widowed_label, " - ", fm_married_divorced_widowed)) %>%
+    select(Questions, Values, issue, KEY),
+  
+  # Received Scope card but not Registered for MCBP? 
+  benef_ver_approved$Female_Members_Details %>% 
+    filter(was_issued_a_scope_card %in% c("Yes", "Was issued a SCOPE card but does not have it now") & 
+             fm_respondent_registered_mcbp %in% "No") %>% 
+    mutate(issue="How is it the respondent received a scope card but is not registered for MCBP? Isn't receiving the Scope Card a MCBP registration?",
+           Questions = "was_issued_a_scope_card - fm_respondent_registered_mcbp",
+           Values = paste0(was_issued_a_scope_card, " - ", fm_respondent_registered_mcbp)) %>%
+    select(Questions, Values, issue, KEY),
+  # Registered differently but gives same name
+  benef_ver_approved$Female_Members_Details %>% 
+    filter(female_hhm_name==fm_respondent_registered_name | fm_respondent_fathername==fm_respondent_registered_father_name) %>% 
+    mutate(issue="Respondent says she were registered as different names but then gives the same name/fathername!",
+           Questions = "female_hhm_name - fm_respondent_fathername - fm_respondent_registered_name - fm_respondent_registered_father_name",
+           Values = paste0(female_hhm_name, " - ", fm_respondent_fathername, " - ", fm_respondent_registered_name , " - ", fm_respondent_registered_father_name)) %>%
+    select(Questions, Values, issue, KEY),
+  # Beneficairy status not right
+  benef_ver_approved$Female_Members_Details %>% 
+    mutate(benef_status_calculated=case_when(
+      was_issued_a_scope_card=="Yes" & (pregnant=="Yes" | breastfeeding=="Yes" | have_a_child_under_2=="Yes") ~ "Eligible",
+      was_issued_a_scope_card!="Yes" & (pregnant=="Yes" | breastfeeding=="Yes" | have_a_child_under_2=="Yes") ~ "Exclusion Error",
+      was_issued_a_scope_card=="Yes" & (fm_married_divorced_widowed=="None of the above" | pregnant!="Yes") & (breastfeeding!="Yes" | have_a_child_under_2!="Yes") ~ "Inclusion Error",
+      TRUE ~ "NA")) %>% 
+    filter(benef_status!=benef_status_calculated) %>% 
+    mutate(issue="The beneficiary status does not match the calculation",
+           Questions = "benef_status - benef_status_calculated - was_issued_a_scope_card - pregnant - breastfeeding - have_a_child_under_2 - fm_married_divorced_widowed",
+           Values = paste0(benef_status, " - ", benef_status_calculated, " - ", was_issued_a_scope_card, " - ", pregnant, " - ", breastfeeding , " - ", have_a_child_under_2, " - ", fm_married_divorced_widowed)) %>%
     select(Questions, Values, issue, KEY)
+)
 
+  
+# Checking Response Consistency --------------------------------------------------------------------
+# Main sheet vs Child sheets
+Inconsistent_main_data_info <- rbind(
+  # Female vs Female sheet
+  benef_ver_approved$data %>% 
+    filter(Interview_Type_SV %in% "Interview with female members of the HH" & !is.na(name_respondent)) %>%
+    select(KEY, Interview_Type_SV, Site_Visit_ID, name_respondent) %>% 
+    left_join(
+      benef_ver_approved$female_household_member %>% select(female_hhm_name_pre, KEY=PARENT_KEY)
+    ) %>% 
+    group_by(KEY) %>% 
+    mutate(Name_Found=case_when(
+      name_respondent %notin% female_hhm_name_pre ~ "No",
+      name_respondent %in% female_hhm_name_pre ~ "Yes"
+    )) %>% 
+    filter(Name_Found=="No") %>% 
+    mutate(Issue="Respondent's name in main sheet doesn't match any of the names in the repeat group!"),
+  # Female MKP vs female sheet
+  benef_ver_approved$data %>% 
+    filter(Interview_Type_SV %in% "Interview with HHH/MKP" & gender_respondent0 %in% "Female") %>% 
+    select(KEY, Site_Visit_ID, Interview_Type_SV, gender_respondent0, name_respondent) %>% 
+    left_join(
+      benef_ver_approved$female_household_member %>% 
+        select(female_hhm_name_pre, Site_Visit_ID)
+    ) %>% 
+    group_by(KEY) %>% 
+    mutate(Name_Found=case_when(
+      name_respondent %notin% female_hhm_name_pre ~ "No",
+      name_respondent %in% female_hhm_name_pre ~ "Yes"
+    )) %>% 
+    filter(Name_Found=="No") %>% 
+    mutate(Issue="HHH/MKP Female Respondent's name in main sheet doesn't match any of the names in the female repeat group!"),
+  # Male MKP vs male sheet
+  benef_ver_approved$data %>% 
+    filter(Interview_Type_SV %in% "Interview with HHH/MKP" & gender_respondent0 %in% "Male") %>%
+    select(KEY, Interview_Type_SV, Site_Visit_ID, name_respondent) %>% 
+    left_join(
+      benef_ver_approved$male_household_members %>% select(male_hhm_name_pre, KEY=PARENT_KEY)
+    ) %>% 
+    group_by(KEY) %>% 
+    mutate(Name_Found=case_when(
+      name_respondent %notin% male_hhm_name_pre ~ "No",
+      name_respondent %in% male_hhm_name_pre ~ "Yes"
+    )) %>% 
+    filter(Name_Found=="No") %>% 
+    mutate(Issue="Respondent's name in main sheet doesn't match any of the names in the repeat group!")
   
 )
 
-
-# Checking Response Consistency --------------------------------------------------------------------
 # Male_Members_Details vs male_household_members sheet
 Inconsistent_male_info <- benef_ver_approved$Male_Members_Details %>% 
   select(PARENT_KEY, indx=indx_male, male_hhm_name_pre=male_hhm_name, male_hhm_age_pre=male_hhm_age) %>% 
@@ -170,6 +250,7 @@ Inconsistent_female_info <- benef_ver_approved$Female_Members_Details %>%
     by=c("PARENT_KEY", "indx_female_pre", "Question")
   ) %>% filter(Values_Female_Member!=Values_female_hh_mem)
 
+  
 
 # Data Checks --------------------------------------------------------------------------------------
 # benef_ver_approved$data %>% count(Site_Visit_ID) 
@@ -203,7 +284,20 @@ inconsistent_closed_type <- benef_ver_approved$data %>%
   filter(closed_temp_perm %in% c("Temporarily - Permanently", "Permanently - Temporarily")) %>% 
   mutate(Remarks="In one interview it says the house is temporarily closed but in the other permenantly!") 
 
-  
+# 
+# female_data <- benef_ver_approved$data %>% 
+#   filter(Interview_Type_SV %in% "Interview with female members of the HH") %>% 
+#   select(Site_Visit_ID, Interview_Type_SV, consent_female_interview, consent_fm)
+# 
+# benef_ver_approved$data %>% 
+#   filter(Interview_Type_SV %in% "Interview with HHH/MKP" & !is.na(consent_for_women_in_your_household_to_be_interviewed_by_female_enumerator)) %>% 
+#   select(Site_Visit_ID, Interview_Type_SV, consent_for_women_in_your_household_to_be_interviewed_by_female_enumerator) %>% 
+#   full_join(
+#     female_data
+#   ) %>% View
+#   filter(!is.na(consent_for_women_in_your_household_to_be_interviewed_by_female_enumerator) & !is.na(consent_female_interview))
+
+
 
 
 # Repeat Sheet mismatch ----------------------------------------------------------------------------
@@ -272,15 +366,37 @@ logical_issues <- plyr::rbind.fill(
 #   filter(is.na(QA_Remarks))
 
 
-logical_issues_list <- list(
-  logical_issues=logical_issues,
-  Inconsistent_male_info=Inconsistent_male_info,
-  Inconsistent_female_info=Inconsistent_female_info,
-  repeatsheet_mismatch=repeatsheet_mismatch,
-  Missing_interview_type=Missing_interview_type,
-  inconsistent_availability=inconsistent_availability,
-  inconsistent_closed_type=inconsistent_closed_type
+# logical_issues_list <- list(
+#   logical_issues=logical_issues,
+#   Inconsistent_male_info=Inconsistent_male_info,
+#   Inconsistent_female_info=Inconsistent_female_info,
+#   repeatsheet_mismatch=repeatsheet_mismatch,
+#   Missing_interview_type=Missing_interview_type,
+#   inconsistent_availability=inconsistent_availability,
+#   inconsistent_closed_type=inconsistent_closed_type
+# )
+vars <- c(
+  "logical_issues",
+  "Inconsistent_male_info",
+  "Inconsistent_female_info",
+  "repeatsheet_mismatch",
+  "Missing_interview_type",
+  "inconsistent_availability",
+  "inconsistent_closed_type",
+  "Inconsistent_main_data_info"
 )
+
+logical_issues_list <- list()
+for(var in vars){
+  
+  if(nrow(get(var))!=0){
+    logical_issues_list[[var]] <- get(var)
+  }
+}
+
+
+
+
 
 # Remove extra objects -----------------------------------------------------------------------------
 rm()

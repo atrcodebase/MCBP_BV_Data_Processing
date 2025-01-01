@@ -1,7 +1,8 @@
 # Check Relevancy Rules ----------------------------------------------------------------------------
 ## Read
 BV_tool_relevancy <- read_excel("input/tool_relevancy_rules/MCBP_BV_relevancy_rules.xlsx")
-
+elder_tool_relevnacy <- read_excel("input/tool_relevancy_rules/MCBP_CEC_relevancy_rules.xlsx")
+  
 ### Beneficiary Verification
 ## Join main columns with repeat sheets
 BV_data_sub <- benef_ver$data %>%
@@ -33,6 +34,11 @@ BV_relevancy_issues <- BV_relevancy_issues %>%
   left_join(select(benef_ver$data, qa_status, key=KEY)) %>% 
   filter(question %notin% "name_of_hh_QA_purpose")
 
+
+
+## Community Elder Confirmation
+elder_relevancy_issues <- check_relevancy_rules(comm_elder, elder_tool_relevnacy, sheet_name="data")
+
 # Update Select_multiple series columns ------------------------------------------------------------
 ## Beneficiary Verification
 BV_SM_issues <- c()
@@ -52,7 +58,8 @@ for(sheet in benef_sheets){
 ## Export List -------------------------------------------------------------------------------------
 # Relevancy
 relevancy_issues <- plyr::rbind.fill(
-  BV_relevancy_issues %>% mutate(Tool="Beneficiary_Verification")
+  BV_relevancy_issues %>% mutate(Tool="Beneficiary_Verification"),
+  elder_relevancy_issues %>% mutate(Tool="Community_Elder")
 ) 
 
 ## Select Multiple issues

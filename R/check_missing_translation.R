@@ -52,6 +52,25 @@ benef_missing_log <- rbind(
                 suffix="qa", sheet="Female_Members_Details")
   )
 
+
+## Community Elder Confirmation
+elder_tool <- read_excel(elder_tool_path, "survey", guess_max = 100000)
+elder_audio_cols <- elder_tool %>% filter(type %in% c("audio")) %>% pull(name) #  & name %in% names(impact_evaluation_approved$data)
+elder_image_cols <- elder_tool %>% filter(type %in% c("image")) %>% pull(name)
+
+
+
+elder_missing_log <- rbind(
+  # Translation
+  log_questions(data=comm_elder,
+                columns=elder_audio_cols[elder_audio_cols %in% names(comm_elder)],
+                suffix="translation", sheet="data"),
+  # Image QA
+  log_questions(data=comm_elder, 
+                columns=elder_image_cols[elder_image_cols %in% names(comm_elder)], 
+                suffix="qa", sheet="data")
+)
+
 ## Log Missing Translation -------------------------------------------------------------------------
 excluded_cols <- c("Village", "Address", "first_name_of_hh", "last_name_of_hh", "fathers_name_hh",
                    "male_hhm_name_pre", "male_hhm_name", "female_hhm_name_pre", "female_hhm_name",
@@ -60,18 +79,23 @@ excluded_cols <- c("Village", "Address", "first_name_of_hh", "last_name_of_hh", 
                    "name_youngest_child_under_2", "name_respondent", "name_of_hh_QA_purpose")
 
 missing_translation_log <- rbind(
-  missing_translation(data = benef_ver_approved$data, KEY = "KEY", excluded_cols),
-  missing_translation(data = benef_ver_approved$scope_card_hh_rep, KEY = "KEY", excluded_cols),
-  missing_translation(data = benef_ver_approved$male_household_members, KEY = "KEY", excluded_cols),
-  missing_translation(data = benef_ver_approved$Male_Members_Details, KEY = "KEY", excluded_cols),
-  missing_translation(data = benef_ver_approved$female_household_member, KEY = "KEY", excluded_cols),
-  missing_translation(data = benef_ver_approved$Female_Members_Details, KEY = "KEY", excluded_cols)
-  ) %>% mutate(Tool = "Beneficiary_Verification")
+  rbind(
+    missing_translation(data = benef_ver_approved$data, KEY = "KEY", excluded_cols),
+    missing_translation(data = benef_ver_approved$scope_card_hh_rep, KEY = "KEY", excluded_cols),
+    missing_translation(data = benef_ver_approved$male_household_members, KEY = "KEY", excluded_cols),
+    missing_translation(data = benef_ver_approved$Male_Members_Details, KEY = "KEY", excluded_cols),
+    missing_translation(data = benef_ver_approved$female_household_member, KEY = "KEY", excluded_cols),
+    missing_translation(data = benef_ver_approved$Female_Members_Details, KEY = "KEY", excluded_cols)
+  ) %>% mutate(Tool = "Beneficiary_Verification"),
+  
+  missing_translation(data = comm_elder, KEY = "KEY", excluded_cols) %>% mutate(Tool = "Community_Elder")
+)
 
 
 ## Export List -------------------------------------------------------------------------------------
 missing_translation_QA_log <- rbind(
-  benef_missing_log %>% mutate(Tool = "Beneficiary_Verification")
+  benef_missing_log %>% mutate(Tool = "Beneficiary_Verification"),
+  elder_missing_log %>% mutate(Tool = "Community_Elder")
   )
 
 ## Separate translation and image logs

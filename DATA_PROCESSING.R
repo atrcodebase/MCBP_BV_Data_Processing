@@ -15,6 +15,7 @@ source("R/custom_functions.R")
 
 # Declaring Global Variables -----------------------------------------------------------------------
 benef_tool_path <- "input/tools/MCBP+Beneficiary+Verification+Tool.xlsx"
+elder_tool_path <- "input/tools/MCBP+Community+Elder+Confirmation+Tool.xlsx"
 benef_sheets <- c("data", "scope_card_hh_rep", "male_household_members", "Male_Members_Details", 
                "female_household_member", "Female_Members_Details")
 # Survey CTO Download link extension
@@ -23,6 +24,7 @@ download_link <- "https://artftpm.surveycto.com/view/submission-attachment/"
 # Read data ----------------------------------------------------------------------------------------
 # Beneficiary Verification
 benef_ver = read_xlsx_sheets("input/raw_data/MCBP Beneficiary Verification Tool.xlsx")
+comm_elder = read_excel("input/raw_data/MCBP Community Elder Confirmation Tool.xlsx", guess_max = 100000, na = c("N/A", "-", " "))
 
 # read qa-log, correction log, and translation log -------------------------------------------
 url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBw0D-xoQ9QGKbeT6hxrVtCmdOiT4ZlUmhQeBrN64jQcyBAla4yLQQR1aR560xgRgP34a1ffMstmOM/pub?"
@@ -37,7 +39,7 @@ crosscheck_log <- readr::read_csv("https://docs.google.com/spreadsheets/d/e/2PAC
 # crosscheck_log %>% count(Found_In_WFP_List, Beneficiary_Category)
 
 # Join QA Status -----------------------------------------------------------------------------------
-count(qa_log, QA_Status)
+count(qa_log, Tool, QA_Status)
 qa_log_sub <- qa_log %>%
   select(KEY=KEY_Unique, qa_status=QA_Status) %>%
   mutate(qa_status = case_when(
@@ -47,6 +49,9 @@ qa_log_sub <- qa_log %>%
 
 ## Beneficiary Verification
 benef_ver$data <- benef_ver$data %>%
+  left_join(filter(qa_log_sub), by="KEY") #%>% select(-Tool)
+## Community Elder Confirmation
+comm_elder <- comm_elder %>%
   left_join(filter(qa_log_sub), by="KEY") #%>% select(-Tool)
 
 benef_ver$data %>% count(qa_status)
@@ -149,11 +154,13 @@ qa_backlog_list <- list(
 check_path("output/cleaned_data") # create the output path
 archive_datasets("output/cleaned_data") # Move previous datasets to Archive
 writexl::write_xlsx(benef_ver, paste0("output/cleaned_data/MCBP_Beneficiary_Verification_", lubridate::today(), ".xlsx"))
+writexl::write_xlsx(comm_elder, paste0("output/cleaned_data/MCBP_Community_Elder_Confirmation_", lubridate::today(), ".xlsx"))
 
 ## export client datasets
 check_path("output/client_data") # create the output path
 archive_datasets("output/client_data") # Move previous datasets to Archive
 export_datasets(benef_ver_approved, paste0("output/client_data/MCBP_Beneficiary_Verification_", lubridate::today(), ".xlsx"))
+export_datasets(list(data=comm_elder_approved), paste0("output/client_data/MCBP_Community_Elder_Confirmation_", lubridate::today(), ".xlsx"))
 
 ## export additional files
 writexl::write_xlsx(correction_log, "output/correction_log.xlsx", format_headers = F) # correction

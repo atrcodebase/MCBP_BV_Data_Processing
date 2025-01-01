@@ -6,8 +6,12 @@ for(sheet in benef_sheets){
 }
 
 
+## Community Elder Confirmation
+elder_response_log <- comm_elder %>% check_responses(tool_path=elder_tool_path, sheet="data")
+
 
 # Export List
 response_log_list <- rbind(
-  benef_response_log %>% mutate(Tool="Beneficiary_Verification"))
+  benef_response_log %>% mutate(Tool="Beneficiary_Verification"),
+  elder_response_log %>% mutate(Tool="Community_Elder"))
 

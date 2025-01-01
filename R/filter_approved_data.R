@@ -16,6 +16,10 @@ benef_ver_approved$Female_Members_Details <- benef_ver_approved$Female_Members_D
   filter(PARENT_KEY %in% benef_ver_approved$data$KEY)
 
 
+## Community Elder Confirmation
+comm_elder_approved <- comm_elder %>% filter(qa_status %in% approved_qa_status)
+
+
 ## Remove extra objects ----------------------------------------------------------------------------
 rm(approved_qa_status)
 

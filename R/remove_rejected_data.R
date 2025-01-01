@@ -32,6 +32,13 @@ benef_ver$Female_Members_Details <- benef_ver$Female_Members_Details %>%
   filter(PARENT_KEY %in% benef_ver$data$KEY) %>%
   filter(KEY %notin% rejection_log$KEY_Unique)
 
+
+## Community Elder Confirmation
+comm_elder <- comm_elder %>%
+  filter(qa_status %notin% rejected_qa_status &
+           KEY %notin% rejection_log$KEY_Unique &
+           review_status %notin% scto_rejected)
+
 ## Remove extra objects ----------------------------------------------------------------------------
 rm(rejected_qa_status, scto_rejected)
 

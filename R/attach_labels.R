@@ -37,6 +37,13 @@ benef_ver$Female_Members_Details <- labeler(data = benef_ver$Female_Members_Deta
                                              choice_lable = "label",
                                              multi_response_sep = ";")
 
+## Community Elder Confirmation --------------------------------------------------------------------
+comm_elder <- labeler(data = comm_elder,
+                          tool = elder_tool_path,
+                          survey_label = "label",
+                          choice_lable = "label",
+                          multi_response_sep = ";")
+
 # remove extra objects -------------------------------------------
 rm()
 
